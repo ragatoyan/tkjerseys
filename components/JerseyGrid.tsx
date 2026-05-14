@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import JerseyCard, { Jersey } from './JerseyCard'
 import JerseyModal from './JerseyModal'
+import CustomRequest from './CustomRequest'
 
 const PAGE_SIZE = 48
 
@@ -35,6 +36,9 @@ export default function JerseyGrid({ jerseys }: { jerseys: Jersey[] }) {
         <JerseyModal jersey={selected} onClose={() => setSelected(null)} />
       )}
 
+      {/* Custom request banner */}
+      <CustomRequest />
+
       {/* Search */}
       <div className="flex flex-col sm:flex-row gap-4 mb-10">
         <div className="relative flex-1 max-w-sm">
@@ -62,9 +66,23 @@ export default function JerseyGrid({ jerseys }: { jerseys: Jersey[] }) {
 
       {/* Grid */}
       {filtered.length === 0 ? (
-        <div className="py-24 text-center">
-          <p className="font-display text-3xl text-muted">GEEN RESULTATEN</p>
-          <p className="font-body text-sm text-muted/60 mt-2">Probeer een andere zoekterm</p>
+        <div className="py-20 text-center border border-border">
+          <p className="font-display text-3xl text-muted mb-2">NIET GEVONDEN</p>
+          <p className="font-body text-sm text-muted/60 mb-6">
+            &ldquo;{search}&rdquo; staat niet in ons huidige assortiment.
+          </p>
+          <a
+            href={`https://wa.me/31686235350?text=${encodeURIComponent(`Hey TKJerseys! Ik zoek: ${search} — kunnen jullie dit voor mij regelen?`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-gold text-pitch font-body font-bold text-sm px-6 py-3"
+          >
+            Vraag het direct aan
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+          <p className="font-body text-xs text-muted/50 mt-3">Wij sourcen vrijwel elk tenue op aanvraag</p>
         </div>
       ) : (
         <>
