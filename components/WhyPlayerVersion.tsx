@@ -64,8 +64,8 @@ export default function WhyPlayerVersion() {
           </p>
         </div>
 
-        {/* Comparison table */}
-        <div className="grid grid-cols-3 border border-border mb-16 overflow-hidden">
+        {/* Comparison table — desktop */}
+        <div className="hidden md:grid grid-cols-3 border border-border mb-16 overflow-hidden">
           <div className="p-5 bg-surface border-r border-border">
             <div className="font-body text-xs text-muted uppercase tracking-widest mb-4">Kenmerk</div>
             {['Stofkwaliteit', 'Pasvorm', 'Naden & afwerking', 'Transpiratie', 'Duurzaamheid'].map((row) => (
@@ -85,6 +85,31 @@ export default function WhyPlayerVersion() {
             <div className="font-body text-xs text-gold uppercase tracking-widest mb-4">Player version</div>
             {['Dri-FIT technologie', 'Body-mapped snit', 'Professioneel', 'Hoog', 'Uitstekend'].map((val) => (
               <div key={val} className="py-3 border-t border-border font-body text-sm text-chalk font-medium">{val}</div>
+            ))}
+          </div>
+        </div>
+
+        {/* Comparison table — mobile (stacked cards) */}
+        <div className="md:hidden mb-12 space-y-3">
+          <div className="border border-gold/30 bg-elevated p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="font-body text-xs text-muted uppercase tracking-widest">Fan versie</span>
+              <span className="font-body text-xs text-gold uppercase tracking-widest font-bold">Player Version ↓</span>
+            </div>
+            {[
+              { label: 'Stofkwaliteit',      fan: 'Polyester basis',   pro: 'Dri-FIT technologie' },
+              { label: 'Pasvorm',            fan: 'Los / standaard',   pro: 'Body-mapped snit' },
+              { label: 'Naden & afwerking',  fan: 'Eenvoudig',         pro: 'Professioneel' },
+              { label: 'Transpiratie',       fan: 'Beperkt',           pro: 'Hoog' },
+              { label: 'Duurzaamheid',       fan: 'Matig',             pro: 'Uitstekend' },
+            ].map((row) => (
+              <div key={row.label} className="py-3 border-t border-border">
+                <div className="font-body text-[10px] text-muted uppercase tracking-widest mb-1.5">{row.label}</div>
+                <div className="flex gap-2">
+                  <span className="flex-1 font-body text-xs text-muted line-through">{row.fan}</span>
+                  <span className="flex-1 font-body text-xs text-chalk font-semibold text-right">{row.pro}</span>
+                </div>
+              </div>
             ))}
           </div>
         </div>

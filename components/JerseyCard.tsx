@@ -31,8 +31,8 @@ export default function JerseyCard({ jersey, onClick }: Props) {
         />
 
         {/* Player version badge */}
-        <div className="absolute top-3 left-3 bg-pitch/80 backdrop-blur-sm border border-gold/30 px-2 py-1">
-          <span className="font-body text-[10px] text-gold uppercase tracking-widest font-medium">
+        <div className="absolute top-2 left-2 bg-pitch/75 backdrop-blur-sm border border-gold/20 px-2 py-0.5">
+          <span className="font-body text-[9px] text-gold/80 uppercase tracking-widest font-medium">
             Player Version
           </span>
         </div>

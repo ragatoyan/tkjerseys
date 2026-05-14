@@ -20,28 +20,24 @@ export default function JerseyModal({ jersey, onClose }: Props) {
   const [current, setCurrent] = useState(0)
   const [loading, setLoading] = useState(true)
 
-  // Fetch photos on mount
   useEffect(() => {
     setLoading(true)
+    setCurrent(0)
     fetch(`/api/album?id=${jersey.id}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.photos?.length) {
           setPhotos(data.photos)
         } else {
-          // Fallback to cover image
-          const coverPath = jersey.imageUrl.replace('https://photo.yupoo.com', '')
-          setPhotos([coverPath])
+          setPhotos([jersey.imageUrl.replace('https://photo.yupoo.com', '')])
         }
       })
       .catch(() => {
-        const coverPath = jersey.imageUrl.replace('https://photo.yupoo.com', '')
-        setPhotos([coverPath])
+        setPhotos([jersey.imageUrl.replace('https://photo.yupoo.com', '')])
       })
       .finally(() => setLoading(false))
   }, [jersey.id, jersey.imageUrl])
 
-  // Keyboard navigation
   const prev = useCallback(() => setCurrent((c) => (c - 1 + photos.length) % photos.length), [photos.length])
   const next = useCallback(() => setCurrent((c) => (c + 1) % photos.length), [photos.length])
 
@@ -52,42 +48,72 @@ export default function JerseyModal({ jersey, onClose }: Props) {
       if (e.key === 'ArrowRight') next()
     }
     window.addEventListener('keydown', handler)
+    // Prevent body scroll while modal is open
+    const prev_overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
       window.removeEventListener('keydown', handler)
-      document.body.style.overflow = ''
+      document.body.style.overflow = prev_overflow
     }
   }, [onClose, prev, next])
 
-  return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-pitch/95 backdrop-blur-sm p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="relative w-full max-w-5xl max-h-[95vh] flex flex-col md:flex-row bg-surface border border-border overflow-hidden">
+  // Touch swipe support
+  const [touchStart, setTouchStart] = useState<number | null>(null)
+  const handleTouchStart = (e: React.TouchEvent) => setTouchStart(e.touches[0].clientX)
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStart === null) return
+    const diff = touchStart - e.changedTouches[0].clientX
+    if (Math.abs(diff) > 50) diff > 0 ? next() : prev()
+    setTouchStart(null)
+  }
 
-        {/* Close button */}
+  const displayName = jersey.name.replace(` — ${jersey.variant}`, '')
+
+  return (
+    // Backdrop
+    <div
+      className="fixed inset-0 z-[100] bg-pitch/95 backdrop-blur-sm"
+      style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
+      {/* ── Sticky header bar (always visible, accounts for notch/status bar) ── */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface/90 backdrop-blur-sm flex-shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-1.5 h-1.5 rounded-full bg-gold flex-shrink-0" />
+          <span className="font-body text-xs text-gold uppercase tracking-widest font-medium truncate">
+            Player Version
+          </span>
+        </div>
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-9 h-9 flex items-center justify-center bg-pitch/80 hover:bg-pitch border border-border text-muted hover:text-chalk transition-colors"
+          className="flex items-center gap-2 bg-elevated border border-border px-4 py-2 text-chalk hover:bg-border transition-colors flex-shrink-0 ml-4"
           aria-label="Sluiten"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
+          <span className="font-body text-sm font-medium">Sluiten</span>
         </button>
+      </div>
 
-        {/* ── Photo gallery ── */}
-        <div className="relative flex-1 bg-elevated flex items-center justify-center min-h-[50vh] md:min-h-0">
+      {/* ── Scrollable content ── */}
+      <div className="flex flex-col md:flex-row h-[calc(100%-57px)] overflow-y-auto md:overflow-hidden">
+
+        {/* Photo gallery */}
+        <div
+          className="relative bg-elevated flex-shrink-0 md:flex-1 flex items-center justify-center"
+          style={{ minHeight: '55vw', maxHeight: '60vh' }}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
           {loading ? (
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-3 py-16">
               <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />
               <span className="font-body text-xs text-muted">Foto&apos;s laden...</span>
             </div>
           ) : (
             <>
               {/* Main photo */}
-              <div className="relative w-full h-[320px] md:h-full min-h-[320px]">
+              <div className="relative w-full h-full" style={{ minHeight: '55vw', maxHeight: '60vh' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   key={photos[current]}
@@ -97,13 +123,13 @@ export default function JerseyModal({ jersey, onClose }: Props) {
                 />
               </div>
 
-              {/* Navigation arrows */}
+              {/* Nav arrows — only show if multiple photos */}
               {photos.length > 1 && (
                 <>
                   <button
                     onClick={prev}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-pitch/70 hover:bg-pitch border border-border text-chalk transition-colors"
-                    aria-label="Vorige"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-pitch/80 border border-border text-chalk active:bg-pitch"
+                    aria-label="Vorige foto"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -111,83 +137,67 @@ export default function JerseyModal({ jersey, onClose }: Props) {
                   </button>
                   <button
                     onClick={next}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-pitch/70 hover:bg-pitch border border-border text-chalk transition-colors"
-                    aria-label="Volgende"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-pitch/80 border border-border text-chalk active:bg-pitch"
+                    aria-label="Volgende foto"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </button>
 
-                  {/* Photo counter */}
-                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-pitch/70 border border-border px-3 py-1">
-                    <span className="font-body text-xs text-muted">
-                      {current + 1} / {photos.length}
-                    </span>
+                  {/* Counter */}
+                  <div className="absolute bottom-2 right-2 bg-pitch/70 border border-border px-2 py-0.5">
+                    <span className="font-body text-xs text-muted">{current + 1}/{photos.length}</span>
                   </div>
                 </>
               )}
 
-              {/* Thumbnail strip */}
+              {/* Swipe hint on mobile — only show first time */}
               {photos.length > 1 && (
-                <div className="absolute bottom-0 left-0 right-0 flex gap-1 p-2 bg-gradient-to-t from-pitch/80 overflow-x-auto">
-                  {photos.map((p, i) => (
-                    <button
-                      key={p}
-                      onClick={() => setCurrent(i)}
-                      className={`flex-shrink-0 w-12 h-12 border-2 overflow-hidden transition-all ${
-                        i === current ? 'border-gold' : 'border-transparent hover:border-border'
-                      }`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={proxyUrl(p)}
-                        alt={`Foto ${i + 1}`}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    </button>
-                  ))}
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 md:hidden">
+                  <span className="font-body text-[10px] text-muted/50">← swipe →</span>
                 </div>
               )}
             </>
           )}
         </div>
 
-        {/* ── Info panel ── */}
-        <div className="w-full md:w-72 flex-shrink-0 flex flex-col p-6 border-t md:border-t-0 md:border-l border-border">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-1.5 border border-gold/30 bg-gold/10 px-3 py-1 mb-4 w-fit">
-            <span className="w-1 h-1 rounded-full bg-gold" />
-            <span className="font-body text-[10px] text-gold tracking-widest uppercase font-medium">
-              Player Version
-            </span>
+        {/* Thumbnail strip */}
+        {photos.length > 1 && (
+          <div className="flex gap-1.5 px-3 py-2 overflow-x-auto bg-pitch border-t border-b border-border md:hidden flex-shrink-0">
+            {photos.map((p, i) => (
+              <button
+                key={p}
+                onClick={() => setCurrent(i)}
+                className={`flex-shrink-0 w-14 h-14 border-2 overflow-hidden transition-all ${
+                  i === current ? 'border-gold' : 'border-transparent opacity-50'
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={proxyUrl(p)} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
+              </button>
+            ))}
           </div>
+        )}
 
-          {/* Club */}
-          <p className="font-body text-xs text-muted uppercase tracking-widest mb-1">{jersey.club}</p>
-
-          {/* Name */}
-          <h2 className="font-display text-2xl text-chalk leading-tight mb-2">
-            {jersey.name.replace(` — ${jersey.variant}`, '')}
-          </h2>
-
+        {/* Info panel */}
+        <div className="w-full md:w-72 flex-shrink-0 flex flex-col p-5 md:p-6 md:border-l border-border overflow-y-auto">
+          <p className="font-body text-[10px] text-muted uppercase tracking-widest mb-1">{jersey.club}</p>
+          <h2 className="font-display text-2xl md:text-3xl text-chalk leading-tight mb-1">{displayName}</h2>
           {jersey.variant && (
             <p className="font-body text-sm text-muted mb-4">{jersey.variant}</p>
           )}
 
-          {/* Divider */}
           <div className="w-full h-px bg-border mb-4" />
 
-          {/* Details */}
-          <div className="space-y-2 mb-6">
+          <div className="space-y-2.5 mb-5">
             {[
-              { label: 'Type', value: 'Player Version' },
-              { label: 'Prijs', value: 'Op aanvraag' },
+              { label: 'Type',          value: 'Player Version' },
+              { label: 'Prijs',         value: 'Op aanvraag' },
               { label: 'Naam & nummer', value: 'Mogelijk' },
-              { label: 'Maten', value: 'S t/m 3XL' },
+              { label: 'Maten',         value: 'S t/m 3XL' },
             ].map(({ label, value }) => (
-              <div key={label} className="flex justify-between">
+              <div key={label} className="flex justify-between items-center">
                 <span className="font-body text-xs text-muted">{label}</span>
                 <span className="font-body text-xs text-chalk font-medium">{value}</span>
               </div>
@@ -206,9 +216,7 @@ export default function JerseyModal({ jersey, onClose }: Props) {
             </svg>
             Ik wil dit tenue
           </a>
-          <p className="font-body text-[10px] text-muted text-center mt-2">
-            Prijs + info via WhatsApp
-          </p>
+          <p className="font-body text-[10px] text-muted text-center mt-2">Prijs + info via WhatsApp</p>
         </div>
       </div>
     </div>
