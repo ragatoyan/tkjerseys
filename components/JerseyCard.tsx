@@ -1,5 +1,3 @@
-import Image from 'next/image'
-
 export interface Jersey {
   id: string
   name: string
@@ -20,14 +18,12 @@ export default function JerseyCard({ jersey }: { jersey: Jersey }) {
     >
       {/* Jersey image */}
       <div className="relative aspect-square bg-elevated overflow-hidden">
-        <Image
-          src={jersey.imageUrl}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/api/img?url=${encodeURIComponent(jersey.imageUrl)}`}
           alt={jersey.name}
-          fill
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
-          unoptimized
         />
 
         {/* Player version badge */}
