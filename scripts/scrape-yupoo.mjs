@@ -85,6 +85,12 @@ const TEAM_MAP = {
   // Neymar / Messi specials
   '内马尔':{ name: 'Neymar Special Edition', league: 'Overig' },
   '梅西':   { name: 'Messi Special Edition',  league: 'Overig' },
+  // Extra clubs
+  '红牛':     { name: 'Red Bull Leipzig', league: 'Bundesliga' },
+  '阿斯顿':   { name: 'Aston Villa', league: 'Premier League' },
+  '卡尔比':   { name: 'Deportivo Cali', league: 'Overig' },
+  '里斯本竞技': { name: 'Sporting Lissabon', league: 'Overig' },
+  '利兹':     { name: 'Leeds United', league: 'Premier League' },
   // Premier League
   '曼城': { name: 'Manchester City', league: 'Premier League' },
   '曼联': { name: 'Manchester United', league: 'Premier League' },
@@ -153,6 +159,11 @@ const TEAM_MAP = {
   '桑托斯': { name: 'Santos FC', league: 'Overig' },
   '格雷米奥': { name: 'Grêmio', league: 'Overig' },
   '科林蒂按': { name: 'Corinthians', league: 'Overig' },
+  // Extra Flamengo spellings
+  '佛拉门戈': { name: 'Flamengo', league: 'Overig' },
+  '弗拉明戈': { name: 'Flamengo', league: 'Overig' },
+  '弗拉明戎': { name: 'Flamengo', league: 'Overig' },
+  '佛拉明戈': { name: 'Flamengo', league: 'Overig' },
   // National teams
   '阿根廷': { name: 'Argentina', league: 'Nationaal team' },
   '巴西': { name: 'Brazilië', league: 'Nationaal team' },
@@ -167,6 +178,22 @@ const TEAM_MAP = {
   '日本': { name: 'Japan', league: 'Nationaal team' },
   '喀麦隆': { name: 'Kameroen', league: 'Nationaal team' },
   '巴勒斯坦': { name: 'Palestina', league: 'Nationaal team' },
+  '克罗地亚': { name: 'Kroatië', league: 'Nationaal team' },
+  '卡塔尔':   { name: 'Qatar', league: 'Nationaal team' },
+  '克罗地':   { name: 'Kroatië', league: 'Nationaal team' },
+  '土耳其':   { name: 'Turkije', league: 'Nationaal team' },
+  '波兰':     { name: 'Polen', league: 'Nationaal team' },
+  '瑞士':     { name: 'Zwitserland', league: 'Nationaal team' },
+  '澳大利亚': { name: 'Australië', league: 'Nationaal team' },
+  '加纳':     { name: 'Ghana', league: 'Nationaal team' },
+  '突尼斯':   { name: 'Tunesië', league: 'Nationaal team' },
+  '厄瓜多尔': { name: 'Ecuador', league: 'Nationaal team' },
+  '秘鲁':     { name: 'Peru', league: 'Nationaal team' },
+  '智利':     { name: 'Chili', league: 'Nationaal team' },
+  '乌拉圭':   { name: 'Uruguay', league: 'Nationaal team' },
+  '哥斯达黎加': { name: 'Costa Rica', league: 'Nationaal team' },
+  '伊朗':     { name: 'Iran', league: 'Nationaal team' },
+  '沙特':     { name: 'Saudi-Arabië', league: 'Nationaal team' },
   '摩洛哥': { name: 'Marokko', league: 'Nationaal team' },
   '塞内加尔': { name: 'Senegal', league: 'Nationaal team' },
   '韩国': { name: 'Zuid-Korea', league: 'Nationaal team' },
@@ -219,6 +246,7 @@ function parseTitle(raw) {
     .replace(/^[-；;·\s]+/, '')                       // leading separator
     .replace(/^(\d{2}-\d{2})\s*/, '')                // season "25-26 "
     .replace(/\d{2}\.\s*/g, '')                      // "26. "
+    .replace(/^[,，]?\s*\d{2}(?=[\u4e00-\u9fff])/g, '') // bare "26克罗" -> "克罗"
     .replace(/[,，]?\s*[SMLX]{1,2}\d*[-一~]?\d*[SMLX]{0,2}\s*|\d+[SMLX]{1,2}\s*/gi, ' ') // sizes: S一2XL, 3XL
     .replace(/\s+/g, ' ')
     .trim()
@@ -227,8 +255,9 @@ function parseTitle(raw) {
     if (str.includes(zh)) {
       // Get the rest (everything except the matched team name)
       let rest = str.replace(zh, '')
-        .replace(/^[-；;·\s]+/, '')
-        .replace(/^(\d{2}-\d{2})\s*/, '') // nested season prefix
+        .replace(/^[-；;·\s,，]+/, '')       // leading separator
+        .replace(/^(\d{2}-\d{2})\s*/, '')  // season prefix: 25-26
+        .replace(/^\d{2}\s*/, '')           // bare year: 26
         .trim()
 
       // Apply variant translations one by one (longest match first)
