@@ -8,13 +8,16 @@ export interface Jersey {
   available: boolean
 }
 
-export default function JerseyCard({ jersey }: { jersey: Jersey }) {
+interface Props {
+  jersey: Jersey
+  onClick: (jersey: Jersey) => void
+}
+
+export default function JerseyCard({ jersey, onClick }: Props) {
   return (
-    <a
-      href={jersey.albumUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="jersey-card group relative block bg-surface border border-border hover:border-gold/30 overflow-hidden transition-all duration-300"
+    <button
+      onClick={() => onClick(jersey)}
+      className="jersey-card group relative block w-full text-left bg-surface border border-border hover:border-gold/30 overflow-hidden transition-all duration-300 cursor-pointer"
     >
       {/* Jersey image */}
       <div className="relative aspect-square bg-elevated overflow-hidden">
@@ -45,12 +48,12 @@ export default function JerseyCard({ jersey }: { jersey: Jersey }) {
       <div className="p-4 border-t border-border">
         <p className="font-body text-[10px] text-muted uppercase tracking-widest mb-1">{jersey.club}</p>
         <h3 className="font-display text-lg text-chalk leading-tight group-hover:text-gold transition-colors duration-200">
-          {jersey.name}
+          {jersey.name.replace(` — ${jersey.variant}`, '')}
         </h3>
         {jersey.variant && (
           <p className="font-body text-xs text-muted mt-1">{jersey.variant}</p>
         )}
       </div>
-    </a>
+    </button>
   )
 }

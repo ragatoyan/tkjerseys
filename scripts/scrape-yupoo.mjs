@@ -118,30 +118,73 @@ const VARIANT_MAP = {
   '客':    'Uit',
   '第三':  'Third',
   '二客':  'Uit 2',
+  '三客':  'Derde Uit',
+  '四客':  'Vierde Uit',
   '冠军版': 'Kampioenversie',
+  '冠军纪念版': 'Kampioenversie',
   '特别版': 'Special Edition',
   '欧冠版': 'Champions League',
   '赛前服': 'Pre-match',
   '长袖':  'Lange mouw',
   '纪念版': 'Jubileumeditie',
+  '白':    'Wit',
+  '黑':    'Zwart',
+  '红':    'Rood',
+  '蓝':    'Blauw',
+  '绿':    'Groen',
+  '黄':    'Geel',
+  '粉':    'Roze',
+  '灰':    'Grijs',
+  '紫':    'Paars',
+  '橙':    'Oranje',
+  '金':    'Goud',
+  '白金':  'Platinum',
+}
+
+// Strip all remaining CJK characters and tidy whitespace
+function cleanText(str) {
+  return str
+    .replace(/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]+/g, ' ')  // remove CJK
+    .replace(/\s+/g, ' ')
+    .replace(/[-—:\s]+$/, '')  // trailing separators
+    .replace(/^[-—:\s]+/, '')  // leading separators
+    .trim()
 }
 
 function parseTitle(raw) {
   let str = raw
-    .replace(/^\d+Y\s*/i, '')
-    .replace(/【[^】]+】/g, '')
-    .replace(/球员\d*[.。，-]?\s*/g, '')
-    .replace(/^[-；;·\s]+/, '')
-    .replace(/^(\d{2}-\d{2})\s*/, '')
+    .replace(/^\d+Y\s*/i, '')                        // "50Y "
+    .replace(/【[^】]+】/g, '')                        // "【Link13】"
+    .replace(/球员\d*[.,。一-]?\s*/g, '')           // "球员-" / "球员26."
+    .replace(/^[-；;·\s]+/, '')                       // leading separator
+    .replace(/^(\d{2}-\d{2})\s*/, '')                // season "25-26 "
+    .replace(/\d{2}\.\s*/g, '')                      // "26. "
+    .replace(/[,，]?\s*[SMLX]{0,2}\d*[-一~]{0,1}\d*[SMLX]{0,2}\s*/gi, ' ') // sizes: S一2XL, S-3XL
+    .replace(/\s+/g, ' ')
     .trim()
 
   for (const [zh, info] of Object.entries(TEAM_MAP)) {
     if (str.includes(zh)) {
-      let rest = str.replace(zh, '').replace(/^[-；;·\s]+/, '').trim()
-      for (const [k, v] of Object.entries(VARIANT_MAP)) {
-        rest = rest.replace(k, v)
+      // Get the rest (everything except the matched team name)
+      let rest = str.replace(zh, '')
+        .replace(/^[-；;·\s]+/, '')
+        .replace(/^(\d{2}-\d{2})\s*/, '') // nested season prefix
+        .trim()
+
+      // Apply variant translations one by one (longest match first)
+      const sortedVariants = Object.entries(VARIANT_MAP).sort(([a], [b]) => b.length - a.length)
+      for (const [k, v] of sortedVariants) {
+        rest = rest.split(k).join(` ${v} `)
       }
-      rest = rest.replace(/[-\d]+$/, '').trim()
+
+      // Strip remaining Chinese characters + size notations + trailing numbers
+      rest = cleanText(rest)
+        .replace(/\b[SMLX]{1,3}\d*\b/g, '')     // size labels: S, M, L, XL, 2XL
+        .replace(/\b\d+[SMLX]{1,3}\b/g, '')     // size labels: 3XL
+        .replace(/[-\d\s]+$/, '')                 // trailing "-2", "3" etc.
+        .replace(/\s+/g, ' ')
+        .trim()
+
       return {
         name: `${info.name}${rest ? ` — ${rest}` : ''}`,
         club: info.name,
@@ -151,7 +194,14 @@ function parseTitle(raw) {
     }
   }
 
-  return { name: str || raw, club: 'Overig', variant: '', league: 'Overig' }
+  // No team match — clean up and return with generic label
+  const cleaned = cleanText(str)
+    .replace(/\b[SMLX]{1,3}\d*\b/g, '')
+    .replace(/\b\d+[SMLX]{1,3}\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return { name: cleaned || 'Special Edition', club: 'Overig', variant: '', league: 'Overig' }
 }
 
 function slugify(str) {
@@ -183,26 +233,35 @@ async function scrape() {
     const url = p === 1 ? CATEGORY_URL : `${CATEGORY_URL}?page=${p}`
     console.log(`📄 Page ${p}/${TOTAL_PAGES}: ${url}`)
 
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 })
-    await page.waitForSelector('.album__title', { timeout: 15000 })
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 })
+    await page.waitForSelector('.album__title', { timeout: 20000 })
+    // Extra wait for lazy images to populate their src attributes
+    await sleep(1500)
 
     // Extract all album cards from this page
+    // DOM structure per album:
+    //   div.categories__children
+    //     a.album__main[href=/albums/ID]  ← image link
+    //       img[src=...]
+    //     div.album__title                ← title (sibling, NOT child of link)
     const pageItems = await page.evaluate(() => {
       const results = []
       const titles = document.querySelectorAll('.album__title')
 
       titles.forEach((titleEl) => {
-        const container = titleEl.closest('li') || titleEl.closest('.categories__item') || titleEl.parentElement?.parentElement
-        if (!container) return
+        // parentElement = div.categories__children (the per-album wrapper)
+        const card = titleEl.parentElement
+        if (!card) return
 
-        const link = container.querySelector('a[href*="/albums/"]')
-        const img  = container.querySelector('img')
+        // The image link is a sibling: a.album__main
+        const link = card.querySelector('a.album__main') || card.querySelector('a[href*="/albums/"]')
+        const img  = card.querySelector('img')
 
         if (!link || !img) return
 
-        const href    = link.href
+        const href     = link.href
         const rawTitle = titleEl.textContent?.trim() || ''
-        let imgSrc    = img.src || img.dataset?.src || ''
+        let imgSrc     = img.src || img.dataset?.src || ''
 
         // Upgrade small thumbnails to medium for better quality
         imgSrc = imgSrc.replace('/small.jpg', '/medium.jpg')

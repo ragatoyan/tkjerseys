@@ -2,43 +2,35 @@
 
 import { useState, useMemo } from 'react'
 import JerseyCard, { Jersey } from './JerseyCard'
-
-const LEAGUES = [
-  'Alles',
-  'Premier League',
-  'La Liga',
-  'Serie A',
-  'Bundesliga',
-  'Ligue 1',
-  'Eredivisie',
-  'Nationaal team',
-  'Overig',
-]
+import JerseyModal from './JerseyModal'
 
 const PAGE_SIZE = 48
 
 export default function JerseyGrid({ jerseys }: { jerseys: Jersey[] }) {
-  const [search, setSearch] = useState('')
-  const [activeLeague, setActiveLeague] = useState('Alles')
-  const [page, setPage] = useState(1)
+  const [search, setSearch]           = useState('')
+  const [page, setPage]               = useState(1)
+  const [selected, setSelected]       = useState<Jersey | null>(null)
 
   const filtered = useMemo(() => {
+    const q = search.toLowerCase()
     return jerseys.filter((j) => {
-      const q = search.toLowerCase()
       const matchSearch = !q || j.name.toLowerCase().includes(q) || j.club.toLowerCase().includes(q)
-      const matchLeague = activeLeague === 'Alles' || j.club === activeLeague
-      return matchSearch && matchLeague && j.available
+      return matchSearch && j.available
     })
-  }, [jerseys, search, activeLeague])
+  }, [jerseys, search])
 
   const visible = filtered.slice(0, page * PAGE_SIZE)
   const hasMore = visible.length < filtered.length
 
   return (
-    <div>
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-10">
-        {/* Search */}
+    <>
+      {/* Modal */}
+      {selected && (
+        <JerseyModal jersey={selected} onClose={() => setSelected(null)} />
+      )}
+
+      {/* Search */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-10">
         <div className="relative flex-1 max-w-sm">
           <svg
             className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"
@@ -55,8 +47,6 @@ export default function JerseyGrid({ jerseys }: { jerseys: Jersey[] }) {
             className="w-full bg-surface border border-border pl-10 pr-4 py-3 font-body text-sm text-chalk placeholder-muted focus:outline-none focus:border-gold/50 transition-colors"
           />
         </div>
-
-        {/* Count */}
         <div className="flex items-center">
           <span className="font-body text-xs text-muted">
             {filtered.length} tenues beschikbaar
@@ -74,7 +64,11 @@ export default function JerseyGrid({ jerseys }: { jerseys: Jersey[] }) {
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
             {visible.map((jersey) => (
-              <JerseyCard key={jersey.id} jersey={jersey} />
+              <JerseyCard
+                key={jersey.id}
+                jersey={jersey}
+                onClick={setSelected}
+              />
             ))}
           </div>
 
@@ -91,6 +85,6 @@ export default function JerseyGrid({ jerseys }: { jerseys: Jersey[] }) {
           )}
         </>
       )}
-    </div>
+    </>
   )
 }
