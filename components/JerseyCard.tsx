@@ -6,6 +6,7 @@ export interface Jersey {
   imageUrl: string
   albumUrl: string
   available: boolean
+  rawTitle?: string
 }
 
 interface Props {

@@ -12,10 +12,16 @@ export default function JerseyGrid({ jerseys }: { jerseys: Jersey[] }) {
   const [selected, setSelected]       = useState<Jersey | null>(null)
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase()
+    const q = search.toLowerCase().trim()
     return jerseys.filter((j) => {
-      const matchSearch = !q || j.name.toLowerCase().includes(q) || j.club.toLowerCase().includes(q)
-      return matchSearch && j.available
+      if (!j.available) return false
+      if (!q) return true
+      return (
+        j.name.toLowerCase().includes(q) ||
+        j.club.toLowerCase().includes(q) ||
+        j.variant.toLowerCase().includes(q) ||
+        ((j as Jersey & { rawTitle?: string }).rawTitle ?? '').toLowerCase().includes(q)
+      )
     })
   }, [jerseys, search])
 

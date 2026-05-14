@@ -25,6 +25,66 @@ const DELAY_MS     = 1200  // polite delay between pages
 // ─── Team / variant translation maps (duplicated from lib/translations.ts for use in plain .mjs) ───
 
 const TEAM_MAP = {
+  // Eredivisie / Dutch
+  '阿贾克斯': { name: 'Ajax Amsterdam',       league: 'Eredivisie' },
+  'PSV':      { name: 'PSV Eindhoven',         league: 'Eredivisie' },
+  '费耶诺德': { name: 'Feyenoord',             league: 'Eredivisie' },
+  // English clubs (extra spellings)
+  '纽卡斯尔': { name: 'Newcastle United',      league: 'Premier League' },
+  '纽卡斯':   { name: 'Newcastle United',      league: 'Premier League' },
+  '利兹联':   { name: 'Leeds United',          league: 'Premier League' },
+  // Celtic
+  '凯尔特人': { name: 'Celtic FC',             league: 'Overig' },
+  '新凯尔特人': { name: 'Celtic FC',        league: 'Overig' },
+  // Flamengo (multiple spellings)
+  '弗拉明戈': { name: 'Flamengo',              league: 'Overig' },
+  '佛拉明戈': { name: 'Flamengo',              league: 'Overig' },
+  '弗拉明戰': { name: 'Flamengo',              league: 'Overig' },
+  '弗拉明戎': { name: 'Flamengo',              league: 'Overig' },
+  // Corinthians (multiple spellings)
+  '科林蒂安': { name: 'Corinthians',           league: 'Overig' },
+  '科林蒂按': { name: 'Corinthians',           league: 'Overig' },
+  // Inter Miami
+  '迈阿密': { name: 'Inter Miami CF',       league: 'Overig' },
+  // Saudi national
+  '沙特':   { name: 'Saudi-Arabië',          league: 'Nationaal team' },
+  // Other national teams
+  '哥伦比亚': { name: 'Colombia',              league: 'Nationaal team' },
+  '比利时': { name: 'België',                league: 'Nationaal team' },
+  '尼日利亚': { name: 'Nigeria',               league: 'Nationaal team' },
+  '阿尔及利亚': { name: 'Algerije',         league: 'Nationaal team' },
+  '加拿大': { name: 'Canada',                league: 'Nationaal team' },
+  '牙买加': { name: 'Jamaica',               league: 'Nationaal team' },
+  '挂威':   { name: 'Noorwegen',             league: 'Nationaal team' },
+  '苏格兰': { name: 'Schotland',             league: 'Nationaal team' },
+  '埃及国民': { name: 'Egypte',              league: 'Nationaal team' },
+  '埃及国名': { name: 'Egypte',              league: 'Nationaal team' },
+  '开罗国民': { name: 'Egypte',              league: 'Nationaal team' },
+  '中国队': { name: 'China',                 league: 'Nationaal team' },
+  '马里':   { name: 'Mali',                  league: 'Nationaal team' },
+  '刚果':   { name: 'Congo',                 league: 'Nationaal team' },
+  '科特迪瓦': { name: 'Ivoorkust',            league: 'Nationaal team' },
+  '乌拉圭': { name: 'Uruguay',               league: 'Nationaal team' },
+  '香港':   { name: 'Hongkong',              league: 'Nationaal team' },
+  '瑞典':   { name: 'Zweden',                league: 'Nationaal team' },
+  // Other clubs
+  '芯山主': { name: 'Al Ain',                league: 'Overig' },
+  '艾因':   { name: 'Al Ain',                league: 'Overig' },
+  '花辣椒': { name: 'CD Guadalajara (Chivas)',league: 'Overig' },
+  '苝福':   { name: 'JDT (Johor)',           league: 'Overig' },
+  '奥兰多': { name: 'Orlando City SC',       league: 'Overig' },
+  '莱昂':   { name: 'Club León',             league: 'Overig' },
+  '米娀塞': { name: 'CF Monterrey',          league: 'Overig' },
+  '科特':   { name: "Côte d'Ivoire",         league: 'Overig' },
+  '新库勒森': { name: 'Leverkusen (new)',     league: 'Bundesliga' },
+  '新纽卡斯': { name: 'Newcastle United',    league: 'Premier League' },
+  '新里斯本': { name: 'Sporting Lissabon',    league: 'Overig' },
+  '里斯本': { name: 'Sporting Lissabon',    league: 'Overig' },
+  '拉齐噩':{ name: 'SS Lazio',              league: 'Serie A' },  // alt spelling
+  '黄色青年人': { name: 'BSC Young Boys',   league: 'Overig' },
+  // Neymar / Messi specials
+  '内马尔':{ name: 'Neymar Special Edition', league: 'Overig' },
+  '梅西':   { name: 'Messi Special Edition',  league: 'Overig' },
   // Premier League
   '曼城': { name: 'Manchester City', league: 'Premier League' },
   '曼联': { name: 'Manchester United', league: 'Premier League' },
@@ -159,7 +219,7 @@ function parseTitle(raw) {
     .replace(/^[-；;·\s]+/, '')                       // leading separator
     .replace(/^(\d{2}-\d{2})\s*/, '')                // season "25-26 "
     .replace(/\d{2}\.\s*/g, '')                      // "26. "
-    .replace(/[,，]?\s*[SMLX]{0,2}\d*[-一~]{0,1}\d*[SMLX]{0,2}\s*/gi, ' ') // sizes: S一2XL, S-3XL
+    .replace(/[,，]?\s*[SMLX]{1,2}\d*[-一~]?\d*[SMLX]{0,2}\s*|\d+[SMLX]{1,2}\s*/gi, ' ') // sizes: S一2XL, 3XL
     .replace(/\s+/g, ' ')
     .trim()
 
@@ -291,6 +351,7 @@ async function scrape() {
         club:       parsed.club,
         variant:    parsed.variant,
         league:     parsed.league,
+        rawTitle:   item.rawTitle,
         imageUrl:   item.imgSrc,
         albumUrl:   item.albumUrl,
         available:  true,
