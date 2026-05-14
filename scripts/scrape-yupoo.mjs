@@ -1,0 +1,284 @@
+/**
+ * TKJerseys — Yupoo scraper
+ * Scrapes: https://yolo55.x.yupoo.com/categories/5188273
+ *
+ * Run: node scripts/scrape-yupoo.mjs
+ * Cron: daily 07:00
+ *
+ * Uses Playwright (headless Chromium) because Yupoo renders via JavaScript.
+ * After each run: auto git push → Vercel auto-deploys.
+ */
+
+import { chromium } from 'playwright'
+import { writeFileSync, readFileSync, existsSync } from 'fs'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
+import { execSync } from 'child_process'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const INVENTORY_PATH = join(__dirname, '../data/inventory.json')
+
+const CATEGORY_URL = 'https://yolo55.x.yupoo.com/categories/5188273'
+const TOTAL_PAGES  = 8
+const DELAY_MS     = 1200  // polite delay between pages
+
+// ─── Team / variant translation maps (duplicated from lib/translations.ts for use in plain .mjs) ───
+
+const TEAM_MAP = {
+  // Premier League
+  '曼城': { name: 'Manchester City', league: 'Premier League' },
+  '曼联': { name: 'Manchester United', league: 'Premier League' },
+  '利物浦': { name: 'Liverpool FC', league: 'Premier League' },
+  '切尔西': { name: 'Chelsea FC', league: 'Premier League' },
+  '阿森纳': { name: 'Arsenal FC', league: 'Premier League' },
+  '热刺': { name: 'Tottenham Hotspur', league: 'Premier League' },
+  '纽卡斯尔': { name: 'Newcastle United', league: 'Premier League' },
+  '西汉姆联': { name: 'West Ham United', league: 'Premier League' },
+  '埃弗顿': { name: 'Everton FC', league: 'Premier League' },
+  '水晶宫': { name: 'Crystal Palace', league: 'Premier League' },
+  '狼队': { name: 'Wolverhampton', league: 'Premier League' },
+  '阿斯顿维拉': { name: 'Aston Villa', league: 'Premier League' },
+  '富勒姆': { name: 'Fulham FC', league: 'Premier League' },
+  '布莱顿': { name: 'Brighton & Hove', league: 'Premier League' },
+  // La Liga
+  '皇马': { name: 'Real Madrid', league: 'La Liga' },
+  '巴萨': { name: 'FC Barcelona', league: 'La Liga' },
+  '马竞': { name: 'Atlético Madrid', league: 'La Liga' },
+  '塞维利亚': { name: 'Sevilla FC', league: 'La Liga' },
+  '贝蒂斯': { name: 'Real Betis', league: 'La Liga' },
+  '毕尔巴鄂': { name: 'Athletic Bilbao', league: 'La Liga' },
+  '皇家社会': { name: 'Real Sociedad', league: 'La Liga' },
+  '瓦伦西亚': { name: 'Valencia CF', league: 'La Liga' },
+  '比利亚雷亚尔': { name: 'Villarreal CF', league: 'La Liga' },
+  // Serie A
+  '国米': { name: 'Inter Milan', league: 'Serie A' },
+  '米兰': { name: 'AC Milan', league: 'Serie A' },
+  '尤文': { name: 'Juventus FC', league: 'Serie A' },
+  '那不勒斯': { name: 'SSC Napoli', league: 'Serie A' },
+  '罗马': { name: 'AS Roma', league: 'Serie A' },
+  '拉齐奥': { name: 'SS Lazio', league: 'Serie A' },
+  '亚特兰大': { name: 'Atalanta BC', league: 'Serie A' },
+  '佛罗伦萨': { name: 'Fiorentina', league: 'Serie A' },
+  // Bundesliga
+  '拜仁': { name: 'Bayern Munich', league: 'Bundesliga' },
+  '多特': { name: 'Borussia Dortmund', league: 'Bundesliga' },
+  '勒沃库森': { name: 'Bayer Leverkusen', league: 'Bundesliga' },
+  '莱比锡': { name: 'RB Leipzig', league: 'Bundesliga' },
+  '法兰克福': { name: 'Eintracht Frankfurt', league: 'Bundesliga' },
+  '弗赖堡': { name: 'SC Freiburg', league: 'Bundesliga' },
+  // Ligue 1
+  '巴黎': { name: 'Paris Saint-Germain', league: 'Ligue 1' },
+  '马赛': { name: 'Olympique Marseille', league: 'Ligue 1' },
+  '里昂': { name: 'Olympique Lyon', league: 'Ligue 1' },
+  '摩纳哥': { name: 'AS Monaco', league: 'Ligue 1' },
+  '里尔': { name: 'LOSC Lille', league: 'Ligue 1' },
+  '雷恩': { name: 'Stade Rennais', league: 'Ligue 1' },
+  // Overig clubs
+  '波尔图': { name: 'FC Porto', league: 'Overig' },
+  '本菲卡': { name: 'SL Benfica', league: 'Overig' },
+  '体育': { name: 'Sporting CP', league: 'Overig' },
+  '吉达': { name: 'Al-Ittihad', league: 'Overig' },
+  '利雅得': { name: 'Al-Nassr', league: 'Overig' },
+  '希拉尔': { name: 'Al-Hilal', league: 'Overig' },
+  '弗拉门戈': { name: 'Flamengo', league: 'Overig' },
+  '博卡': { name: 'Boca Juniors', league: 'Overig' },
+  '河床': { name: 'River Plate', league: 'Overig' },
+  '美洲': { name: 'Club América', league: 'Overig' },
+  '老虎': { name: 'Tigres UANL', league: 'Overig' },
+  '帕丘卡': { name: 'CF Pachuca', league: 'Overig' },
+  '蓝十字': { name: 'Cruz Azul', league: 'Overig' },
+  '托卢卡': { name: 'Deportivo Toluca', league: 'Overig' },
+  '美洲狮': { name: 'Pumas UNAM', league: 'Overig' },
+  '圣保罗': { name: 'São Paulo FC', league: 'Overig' },
+  '桑托斯': { name: 'Santos FC', league: 'Overig' },
+  '格雷米奥': { name: 'Grêmio', league: 'Overig' },
+  '科林蒂按': { name: 'Corinthians', league: 'Overig' },
+  // National teams
+  '阿根廷': { name: 'Argentina', league: 'Nationaal team' },
+  '巴西': { name: 'Brazilië', league: 'Nationaal team' },
+  '法国': { name: 'Frankrijk', league: 'Nationaal team' },
+  '荷兰': { name: 'Nederland', league: 'Nationaal team' },
+  '葡萄牙': { name: 'Portugal', league: 'Nationaal team' },
+  '西班牙': { name: 'Spanje', league: 'Nationaal team' },
+  '德国': { name: 'Duitsland', league: 'Nationaal team' },
+  '意大利': { name: 'Italië', league: 'Nationaal team' },
+  '英格兰': { name: 'Engeland', league: 'Nationaal team' },
+  '墨西哥': { name: 'Mexico', league: 'Nationaal team' },
+  '日本': { name: 'Japan', league: 'Nationaal team' },
+  '喀麦隆': { name: 'Kameroen', league: 'Nationaal team' },
+  '巴勒斯坦': { name: 'Palestina', league: 'Nationaal team' },
+  '摩洛哥': { name: 'Marokko', league: 'Nationaal team' },
+  '塞内加尔': { name: 'Senegal', league: 'Nationaal team' },
+  '韩国': { name: 'Zuid-Korea', league: 'Nationaal team' },
+  '美国': { name: 'USA', league: 'Nationaal team' },
+}
+
+const VARIANT_MAP = {
+  '主':    'Thuis',
+  '客':    'Uit',
+  '第三':  'Third',
+  '二客':  'Uit 2',
+  '冠军版': 'Kampioenversie',
+  '特别版': 'Special Edition',
+  '欧冠版': 'Champions League',
+  '赛前服': 'Pre-match',
+  '长袖':  'Lange mouw',
+  '纪念版': 'Jubileumeditie',
+}
+
+function parseTitle(raw) {
+  let str = raw
+    .replace(/^\d+Y\s*/i, '')
+    .replace(/【[^】]+】/g, '')
+    .replace(/球员\d*[.。，-]?\s*/g, '')
+    .replace(/^[-；;·\s]+/, '')
+    .replace(/^(\d{2}-\d{2})\s*/, '')
+    .trim()
+
+  for (const [zh, info] of Object.entries(TEAM_MAP)) {
+    if (str.includes(zh)) {
+      let rest = str.replace(zh, '').replace(/^[-；;·\s]+/, '').trim()
+      for (const [k, v] of Object.entries(VARIANT_MAP)) {
+        rest = rest.replace(k, v)
+      }
+      rest = rest.replace(/[-\d]+$/, '').trim()
+      return {
+        name: `${info.name}${rest ? ` — ${rest}` : ''}`,
+        club: info.name,
+        variant: rest,
+        league: info.league,
+      }
+    }
+  }
+
+  return { name: str || raw, club: 'Overig', variant: '', league: 'Overig' }
+}
+
+function slugify(str) {
+  return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+// ─── Main ──────────────────────────────────────────────────────────────────
+
+async function scrape() {
+  console.log('🔍 TKJerseys scraper — starting Playwright...')
+  const prev = existsSync(INVENTORY_PATH)
+    ? JSON.parse(readFileSync(INVENTORY_PATH, 'utf8'))
+    : []
+
+  const browser = await chromium.launch({ headless: true })
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
+  })
+  const page = await context.newPage()
+
+  const items = []
+  const SKIP_KEYWORDS = ['尺码表', '尺码', 'size chart']
+
+  for (let p = 1; p <= TOTAL_PAGES; p++) {
+    const url = p === 1 ? CATEGORY_URL : `${CATEGORY_URL}?page=${p}`
+    console.log(`📄 Page ${p}/${TOTAL_PAGES}: ${url}`)
+
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 })
+    await page.waitForSelector('.album__title', { timeout: 15000 })
+
+    // Extract all album cards from this page
+    const pageItems = await page.evaluate(() => {
+      const results = []
+      const titles = document.querySelectorAll('.album__title')
+
+      titles.forEach((titleEl) => {
+        const container = titleEl.closest('li') || titleEl.closest('.categories__item') || titleEl.parentElement?.parentElement
+        if (!container) return
+
+        const link = container.querySelector('a[href*="/albums/"]')
+        const img  = container.querySelector('img')
+
+        if (!link || !img) return
+
+        const href    = link.href
+        const rawTitle = titleEl.textContent?.trim() || ''
+        let imgSrc    = img.src || img.dataset?.src || ''
+
+        // Upgrade small thumbnails to medium for better quality
+        imgSrc = imgSrc.replace('/small.jpg', '/medium.jpg')
+
+        // Extract album ID from URL
+        const albumMatch = href.match(/\/albums\/(\d+)/)
+        const albumId = albumMatch ? albumMatch[1] : null
+
+        if (albumId && rawTitle && imgSrc && imgSrc.startsWith('http')) {
+          results.push({ albumId, rawTitle, imgSrc, albumUrl: href })
+        }
+      })
+
+      return results
+    })
+
+    console.log(`   → Found ${pageItems.length} albums`)
+
+    for (const item of pageItems) {
+      // Skip size charts and non-jersey entries
+      if (SKIP_KEYWORDS.some((k) => item.rawTitle.includes(k))) continue
+
+      const parsed = parseTitle(item.rawTitle)
+      items.push({
+        id:         item.albumId,
+        name:       parsed.name,
+        club:       parsed.club,
+        variant:    parsed.variant,
+        league:     parsed.league,
+        imageUrl:   item.imgSrc,
+        albumUrl:   item.albumUrl,
+        available:  true,
+        scrapedAt:  new Date().toISOString(),
+      })
+    }
+
+    if (p < TOTAL_PAGES) await sleep(DELAY_MS)
+  }
+
+  await browser.close()
+
+  // Merge with previous: preserve manual `available: false` overrides
+  const prevMap = Object.fromEntries(prev.map((j) => [j.id, j]))
+  const merged = items.map((item) => {
+    const old = prevMap[item.id]
+    return old ? { ...item, available: old.available } : item
+  })
+
+  writeFileSync(INVENTORY_PATH, JSON.stringify(merged, null, 2))
+  console.log(`\n✅ Saved ${merged.length} jerseys to data/inventory.json`)
+
+  // Git push → Vercel auto-deploy
+  try {
+    execSync('git add data/inventory.json && git commit -m "chore: update jersey inventory" && git push', {
+      cwd: join(__dirname, '..'),
+      stdio: 'inherit',
+    })
+    console.log('🚀 Pushed to GitHub → Vercel auto-deploy triggered')
+  } catch (err) {
+    console.warn('⚠️ Git push skipped (no changes or not a git repo yet)')
+  }
+
+  // Summary
+  const byLeague = {}
+  merged.forEach((j) => {
+    byLeague[j.league] = (byLeague[j.league] || 0) + 1
+  })
+  console.log('\n📊 Summary by league:')
+  Object.entries(byLeague)
+    .sort(([, a], [, b]) => b - a)
+    .forEach(([league, count]) => console.log(`   ${league}: ${count}`))
+
+  return merged
+}
+
+scrape().catch((err) => {
+  console.error('❌ Scraper failed:', err)
+  process.exit(1)
+})
